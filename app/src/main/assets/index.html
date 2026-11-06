@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MPU6050 Live Motion Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #141b34;
+      --card-hover: #1b2446;
+      --text: #e8ecf8;
+      --muted: #8a94b8;
+      --cyan: #4cc9f0;
+      --pink: #f72585;
+      --lime: #b8f34c;
+      --amber: #ffbe0b;
+      --border: rgba(51, 65, 85, 0.7);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      padding-bottom: 24px;
+    }
+    header {
+      background: rgba(20, 27, 52, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 12px 16px;
+    }
+    .header-content {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--cyan), #7209b7, var(--pink));
+      padding: 2px;
+      box-shadow: 0 4px 15px rgba(76, 201, 240, 0.25);
+    }
+    .logo-inner {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .title-area h1 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      background: rgba(76, 201, 240, 0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(76, 201, 240, 0.3);
+    }
+    .subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+    .badge-disconnected {
+      background: rgba(51, 65, 85, 0.4);
+      color: #94a3b8;
+      border-color: rgba(71, 85, 105, 0.5);
+    }
+    .badge-demo {
+      background: rgba(255, 190, 11, 0.15);
+      color: var(--amber);
+      border-color: rgba(255, 190, 11, 0.4);
+    }
+    .badge-connected {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .badge-hz {
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--lime);
+      border-color: rgba(51, 65, 85, 0.8);
+      font-family: monospace;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 13px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #1a2344;
+      color: var(--text);
+      transition: all 0.2s;
+      outline: none;
+      user-select: none;
+    }
+    .btn:hover {
+      background: var(--card-hover);
+      border-color: rgba(100, 116, 139, 0.8);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan), #4361ee);
+      color: #0b1020;
+      font-weight: 800;
+      border: none;
+      box-shadow: 0 4px 12px rgba(76, 201, 240, 0.25);
+    }
+    .btn-primary:hover {
+      opacity: 0.95;
+    }
+    .btn-demo-active {
+      background: rgba(255, 190, 11, 0.2);
+      color: #fde047;
+      border-color: rgba(255, 190, 11, 0.5);
+    }
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.25);
+    }
+    .container {
+      max-width: 1280px;
+      margin: 16px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+    }
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .kpi-top-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+    .kpi-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .kpi-icon-bubble {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .kpi-val-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .kpi-val {
+      font-size: 2rem;
+      font-weight: 800;
+      font-family: monospace;
+      color: var(--text);
+    }
+    .kpi-unit {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .kpi-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      border-top: 1px solid rgba(51, 65, 85, 0.5);
+      padding-top: 8px;
+    }
+    .kpi-desc {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .kpi-sparkline {
+      width: 100px;
+      height: 32px;
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .time-window-selector {
+      display: flex;
+      align-items: center;
+      background: #0f172a;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 2px;
+    }
+    .time-btn {
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .time-btn.active {
+      background: var(--cyan);
+      color: #0b1020;
+    }
+
+    /* Middle Row: 3D Cube + Alerts */
+    .mid-row {
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .mid-row { grid-template-columns: 1fr; }
+    }
+    .cube-card, .alerts-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .card-header-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-header-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* 3D Viewport */
+    .viewport-3d {
+      width: 100%;
+      height: 220px;
+      background: #090e1c;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 800px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cube-wrapper {
+      width: 96px;
+      height: 96px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.08s ease-out;
+    }
+    .face {
+      position: absolute;
+      width: 96px;
+      height: 96px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      user-select: none;
+      backdrop-filter: blur(4px);
+      box-shadow: inset 0 0 16px rgba(0,0,0,0.4);
+    }
+    .face-front {
+      transform: translateZ(48px);
+      background: rgba(76, 201, 240, 0.25);
+      border: 2px solid var(--cyan);
+      color: var(--cyan);
+    }
+    .face-back {
+      transform: rotateY(180deg) translateZ(48px);
+      background: rgba(30, 41, 59, 0.7);
+      border: 1.5px solid #475569;
+      color: #94a3b8;
+    }
+    .face-right {
+      transform: rotateY(90deg) translateZ(48px);
+      background: rgba(247, 37, 133, 0.25);
+      border: 2px solid var(--pink);
+      color: var(--pink);
+    }
+    .face-left {
+      transform: rotateY(-90deg) translateZ(48px);
+      background: rgba(30, 41, 59, 0.7);
+      border: 1.5px solid #475569;
+      color: #94a3b8;
+    }
+    .face-top {
+      transform: rotateX(90deg) translateZ(48px);
+      background: rgba(184, 243, 76, 0.25);
+      border: 2px solid var(--lime);
+      color: var(--lime);
+    }
+    .face-bottom {
+      transform: rotateX(-90deg) translateZ(48px);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1.5px solid #334155;
+      color: #64748b;
+    }
+    .cube-stats {
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      background: rgba(11, 16, 32, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--muted);
+      display: flex;
+      gap: 10px;
+    }
+    .cube-level-badge {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+    }
+
+    /* Alerts Panel */
+    .alerts-feed {
+      height: 220px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+    .alert-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .alert-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .alert-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .alert-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .alert-msg {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .alert-time {
+      font-size: 10px;
+      font-family: monospace;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    /* Charts Grid (2x2) */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      height: 320px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .chart-canvas-box {
+      width: 100%;
+      flex: 1;
+      position: relative;
+      background: #090e1c;
+      border-radius: 10px;
+      border: 1px solid rgba(51, 65, 85, 0.4);
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-box {
+      background: var(--card);
+      border: 1px solid #475569;
+      border-radius: 20px;
+      max-width: 600px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    pre {
+      background: #0b1020;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #93c5fd;
+      overflow-x: auto;
+      max-height: 220px;
+      margin: 12px 0;
+    }
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      background: rgba(20, 27, 52, 0.95);
+      border: 1px solid #475569;
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Header -->
+  <header>
+    <div class="header-content">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <div class="logo-inner">🧭</div>
+        </div>
+        <div class="title-area">
+          <h1>
+            MPU6050 Live Motion
+            <span class="tag">Telemetry</span>
+          </h1>
+          <p class="subtitle">ESP32 · 6-axis IMU · 115200 Baud</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Status Badges -->
+        <span id="badge-status" class="badge badge-disconnected">
+          <span class="badge-dot"></span>
+          <span id="badge-status-text">Disconnected</span>
+        </span>
+
+        <span class="badge badge-hz">
+          <span id="sample-rate-text">0</span> Hz
+        </span>
+
+        <!-- Buttons -->
+        <button id="btn-calibrate-modal" class="btn" title="Sensor Bias Calibration">
+          🎯 Calibrate
+        </button>
+
+        <button id="btn-guide-modal" class="btn" title="ESP32 Wiring and Firmware Sketch">
+          📖 ESP32 Guide
+        </button>
+
+        <button id="btn-demo" class="btn" title="Toggle realistic simulation">
+          ▶ Demo Mode
+        </button>
+
+        <button id="btn-connect" class="btn btn-primary" title="Open Web Serial port">
+          🔌 Connect Device
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+
+    <!-- KPI Grid (Roll, Pitch, |a|, Temp) -->
+    <div class="kpi-grid">
+      <!-- Roll -->
+      <div class="kpi-card">
+        <div class="kpi-top-glow" style="background: linear-gradient(90deg, transparent, var(--cyan), transparent);"></div>
+        <div class="kpi-header">
+          <span class="kpi-title">Roll Angle (φ)</span>
+          <div class="kpi-icon-bubble" style="background: rgba(76, 201, 240, 0.15); color: var(--cyan);">🔄</div>
+        </div>
+        <div class="kpi-val-row">
+          <span class="kpi-val" id="val-roll" style="color: var(--cyan);">0.0</span>
+          <span class="kpi-unit">°</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="kpi-desc">Lateral Bank Tilt</span>
+          <canvas class="kpi-sparkline" id="spark-roll" width="100" height="32"></canvas>
+        </div>
+      </div>
+
+      <!-- Pitch -->
+      <div class="kpi-card">
+        <div class="kpi-top-glow" style="background: linear-gradient(90deg, transparent, var(--pink), transparent);"></div>
+        <div class="kpi-header">
+          <span class="kpi-title">Pitch Angle (θ)</span>
+          <div class="kpi-icon-bubble" style="background: rgba(247, 37, 133, 0.15); color: var(--pink);">📐</div>
+        </div>
+        <div class="kpi-val-row">
+          <span class="kpi-val" id="val-pitch" style="color: var(--pink);">0.0</span>
+          <span class="kpi-unit">°</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="kpi-desc">Elevation Tilt</span>
+          <canvas class="kpi-sparkline" id="spark-pitch" width="100" height="32"></canvas>
+        </div>
+      </div>
+
+      <!-- Acceleration Magnitude -->
+      <div class="kpi-card">
+        <div class="kpi-top-glow" style="background: linear-gradient(90deg, transparent, var(--lime), transparent);"></div>
+        <div class="kpi-header">
+          <span class="kpi-title">Total Accel |a|</span>
+          <div class="kpi-icon-bubble" style="background: rgba(184, 243, 76, 0.15); color: var(--lime);">⚡</div>
+        </div>
+        <div class="kpi-val-row">
+          <span class="kpi-val" id="val-mag" style="color: var(--lime);">9.81</span>
+          <span class="kpi-unit">m/s²</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="kpi-desc">Gravity (1G ≈ 9.81)</span>
+          <canvas class="kpi-sparkline" id="spark-mag" width="100" height="32"></canvas>
+        </div>
+      </div>
+
+      <!-- Temperature -->
+      <div class="kpi-card">
+        <div class="kpi-top-glow" style="background: linear-gradient(90deg, transparent, var(--amber), transparent);"></div>
+        <div class="kpi-header">
+          <span class="kpi-title">Die Temperature</span>
+          <div class="kpi-icon-bubble" style="background: rgba(255, 190, 11, 0.15); color: var(--amber);">🌡️</div>
+        </div>
+        <div class="kpi-val-row">
+          <span class="kpi-val" id="val-temp" style="color: var(--amber);">28.5</span>
+          <span class="kpi-unit">°C</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="kpi-desc">On-Chip Sensor</span>
+          <canvas class="kpi-sparkline" id="spark-temp" width="100" height="32"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="controls-bar">
+      <div class="btn-group">
+        <button id="btn-pause" class="btn" title="Pause live telemetry updates">
+          ⏸ Pause Stream
+        </button>
+        <button id="btn-clear" class="btn" title="Clear buffer memory">
+          🗑 Clear Data
+        </button>
+        <span id="sample-count-badge" style="font-size: 11px; font-family: monospace; color: var(--muted); margin-left: 6px;">
+          0 samples
+        </span>
+      </div>
+
+      <div class="time-window-selector">
+        <span style="font-size: 11px; font-weight: 600; color: var(--muted); padding: 0 8px;">Window:</span>
+        <button class="time-btn" data-sec="10">10s</button>
+        <button class="time-btn active" data-sec="30">30s</button>
+        <button class="time-btn" data-sec="60">60s</button>
+      </div>
+
+      <div class="btn-group">
+        <button id="btn-zero-calibrate" class="btn" style="color: var(--cyan); border-color: rgba(76,201,240,0.4);" title="Zero offsets to current level">
+          🎯 Zero / Calibrate
+        </button>
+        <button id="btn-export-csv" class="btn" style="color: var(--lime); border-color: rgba(184,243,76,0.4);" title="Download CSV file">
+          📥 Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Middle: 3D Orientation Cube + Alerts Feed -->
+    <div class="mid-row">
+      <!-- 3D Orientation Cube -->
+      <div class="cube-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-header-title">3D Attitude Orientation</div>
+            <div class="card-header-sub">Pure CSS 3D Euler Transformation</div>
+          </div>
+          <button id="btn-reset-view" class="btn" style="padding: 4px 8px; font-size: 11px;">
+            ↺ Reset View
+          </button>
+        </div>
+
+        <div class="viewport-3d">
+          <div class="cube-level-badge" id="level-badge" style="color: var(--lime);">● Level</div>
+          <div class="cube-stats">
+            <span>Roll: <strong id="cube-roll-txt" style="color: var(--cyan);">0.0°</strong></span>
+            <span>Pitch: <strong id="cube-pitch-txt" style="color: var(--pink);">0.0°</strong></span>
+          </div>
+
+          <div class="cube-wrapper" id="cube">
+            <div class="face face-front">FRONT<br><span style="font-size:8px; opacity:0.8;">+Y Axis</span></div>
+            <div class="face face-back">BACK<br><span style="font-size:8px; opacity:0.8;">-Y Axis</span></div>
+            <div class="face face-right">RIGHT<br><span style="font-size:8px; opacity:0.8;">+X Axis</span></div>
+            <div class="face face-left">LEFT<br><span style="font-size:8px; opacity:0.8;">-X Axis</span></div>
+            <div class="face face-top">TOP<br><span style="font-size:8px; opacity:0.8;">+Z (1G)</span></div>
+            <div class="face face-bottom">BOTTOM<br><span style="font-size:8px; opacity:0.8;">-Z Plane</span></div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; font-size: 11px; font-family: monospace; text-align: center;">
+          <div style="background: rgba(15,23,42,0.6); padding: 4px; border-radius: 6px;">
+            <span style="color: var(--cyan); display: block; font-size: 10px;">X (Pitch)</span>
+            <span id="cube-x-val">0.0°</span>
+          </div>
+          <div style="background: rgba(15,23,42,0.6); padding: 4px; border-radius: 6px;">
+            <span style="color: var(--pink); display: block; font-size: 10px;">Y (Roll)</span>
+            <span id="cube-y-val">0.0°</span>
+          </div>
+          <div style="background: rgba(15,23,42,0.6); padding: 4px; border-radius: 6px;">
+            <span style="color: var(--lime); display: block; font-size: 10px;">Z (Normal)</span>
+            <span>9.81 m/s²</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Alerts Panel -->
+      <div class="alerts-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-header-title">Motion Event Log</div>
+            <div class="card-header-sub">Shake, vibration & free-fall telemetry</div>
+          </div>
+          <button id="btn-clear-alerts" class="btn" style="padding: 4px 8px; font-size: 11px;">
+            Clear Log
+          </button>
+        </div>
+
+        <div class="alerts-feed" id="alerts-feed">
+          <div class="alert-item">
+            <div class="alert-left">
+              <div class="alert-dot" style="background: var(--cyan);"></div>
+              <div>
+                <div class="alert-title">System Ready</div>
+                <div class="alert-msg">Dashboard initialized. Select Connect or Demo Mode.</div>
+              </div>
+            </div>
+            <span class="alert-time">Ready</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); margin-top: 8px;">
+          <span>Shake Alarm: &gt; 18.0 m/s²</span>
+          <span>Free-Fall Alarm: &lt; 3.0 m/s²</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Live Telemetry Charts (2x2 Grid) -->
+    <div class="charts-grid">
+      <!-- 1. Accelerometer (ax, ay, az) -->
+      <div class="chart-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-header-title">Accelerometer (m/s²)</div>
+            <div class="card-header-sub">Tri-axis dynamic acceleration</div>
+          </div>
+          <div style="display: flex; gap: 8px; font-size: 11px; font-family: monospace;">
+            <span style="color: var(--cyan);">X: <strong id="lbl-ax">0.0</strong></span>
+            <span style="color: var(--pink);">Y: <strong id="lbl-ay">0.0</strong></span>
+            <span style="color: var(--lime);">Z: <strong id="lbl-az">9.8</strong></span>
+          </div>
+        </div>
+        <div class="chart-canvas-box">
+          <canvas id="chart-accel"></canvas>
+        </div>
+      </div>
+
+      <!-- 2. Gyroscope (gx, gy, gz) -->
+      <div class="chart-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-header-title">Gyroscope (rad/s)</div>
+            <div class="card-header-sub">Angular rotation velocity</div>
+          </div>
+          <div style="display: flex; gap: 8px; font-size: 11px; font-family: monospace;">
+            <span style="color: var(--cyan);">X: <strong id="lbl-gx">0.00</strong></span>
+            <span style="color: var(--pink);">Y: <strong id="lbl-gy">0.00</strong></span>
+            <span style="color: var(--lime);">Z: <strong id="lbl-gz">0.00</strong></span>
+          </div>
+        </div>
+        <div class="chart-canvas-box">
+          <canvas id="chart-gyro"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. Orientation (Roll, Pitch) -->
+      <div class="chart-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-header-title">Orientation Euler Angles (°)</div>
+            <div class="card-header-sub">Calculated Roll and Pitch</div>
+          </div>
+          <div style="display: flex; gap: 8px; font-size: 11px; font-family: monospace;">
+            <span style="color: var(--cyan);">Roll: <strong id="lbl-roll">0.0°</strong></span>
+            <span style="color: var(--pink);">Pitch: <strong id="lbl-pitch">0.0°</strong></span>
+          </div>
+        </div>
+        <div class="chart-canvas-box">
+          <canvas id="chart-orientation"></canvas>
+        </div>
+      </div>
+
+      <!-- 4. Temperature (°C) -->
+      <div class="chart-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-header-title">Die Temperature (°C)</div>
+            <div class="card-header-sub">Internal MPU6050 thermal monitor</div>
+          </div>
+          <div style="font-size: 11px; font-family: monospace; color: var(--amber);">
+            Temp: <strong id="lbl-temp">28.5 °C</strong>
+          </div>
+        </div>
+        <div class="chart-canvas-box">
+          <canvas id="chart-temp"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Calibration Modal -->
+  <div class="modal-overlay" id="modal-calibration">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal('modal-calibration')">&times;</button>
+      <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 4px;">🎯 Sensor Zero & Level Calibration</h3>
+      <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">
+        Place the sensor flat and motionless on a desk before calibrating.
+      </p>
+
+      <div style="background: rgba(15,23,42,0.8); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 16px; font-size: 12px; font-family: monospace;">
+        <div style="color: var(--cyan); margin-bottom: 6px;">Current Offsets Subtracted:</div>
+        <div id="calibration-offsets-txt" style="color: var(--text);">ax: 0.000 | ay: 0.000 | az: 0.000 | gx: 0.000 | gy: 0.000 | gz: 0.000</div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button id="btn-reset-cal" class="btn">Reset to Raw</button>
+        <button id="btn-apply-cal" class="btn btn-primary">Zero Current Level</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESP32 Guide Modal -->
+  <div class="modal-overlay" id="modal-guide">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal('modal-guide')">&times;</button>
+      <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 4px;">📖 ESP32 + MPU6050 Guide</h3>
+      <p style="font-size: 12px; color: var(--muted);">Hardware I2C wiring and Arduino firmware sketch</p>
+
+      <div style="margin-top: 14px; font-size: 12px; line-height: 1.5;">
+        <strong>I2C Pins:</strong> VCC &rarr; 3.3V | GND &rarr; GND | SDA &rarr; GPIO 21 | SCL &rarr; GPIO 22<br>
+        <strong>Baud Rate:</strong> 115200<br>
+        <strong>CSV Output Format:</strong> <code>ax,ay,az,gx,gy,gz,temp</code> (every 50 ms)
+      </div>
+
+      <pre id="code-snippet">#include &lt;Wire.h&gt;
+#include &lt;Adafruit_MPU6050.h&gt;
+#include &lt;Adafruit_Sensor.h&gt;
+
+Adafruit_MPU6050 mpu;
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial) delay(10);
+  Wire.begin(21, 22);
+  mpu.begin();
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+}
+
+void loop() {
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&amp;a, &amp;g, &amp;temp);
+  Serial.print(a.acceleration.x, 3); Serial.print(",");
+  Serial.print(a.acceleration.y, 3); Serial.print(",");
+  Serial.print(a.acceleration.z, 3); Serial.print(",");
+  Serial.print(g.gyro.x, 4);         Serial.print(",");
+  Serial.print(g.gyro.y, 4);         Serial.print(",");
+  Serial.print(g.gyro.z, 4);         Serial.print(",");
+  Serial.println(temp.temperature, 2);
+  delay(50);
+}</pre>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn btn-primary" onclick="copyCode()">Copy Code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Core Javascript Logic -->
+  <script>
+    // State
+    const state = {
+      status: 'disconnected', // 'disconnected' | 'demo' | 'connected'
+      isPaused: false,
+      sampleRateHz: 0,
+      timeWindowSec: 30,
+      samples: [],
+      maxSamples: 1000,
+      offsets: { ax: 0, ay: 0, az: 0, gx: 0, gy: 0, gz: 0, temp: 0 },
+      demoTimer: null,
+      sampleCountSecond: 0,
+      lastSecondTime: performance.now(),
+      startTime: Date.now(),
+      port: null,
+      reader: null,
+      keepReading: false
+    };
+
+    // DOM Elements
+    const badgeStatus = document.getElementById('badge-status');
+    const badgeStatusText = document.getElementById('badge-status-text');
+    const sampleRateText = document.getElementById('sample-rate-text');
+    const sampleCountBadge = document.getElementById('sample-count-badge');
+    const btnDemo = document.getElementById('btn-demo');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnPause = document.getElementById('btn-pause');
+    const btnClear = document.getElementById('btn-clear');
+    const cube = document.getElementById('cube');
+    const cubeRollTxt = document.getElementById('cube-roll-txt');
+    const cubePitchTxt = document.getElementById('cube-pitch-txt');
+    const cubeXVal = document.getElementById('cube-x-val');
+    const cubeYVal = document.getElementById('cube-y-val');
+    const levelBadge = document.getElementById('level-badge');
+    const alertsFeed = document.getElementById('alerts-feed');
+    const toastContainer = document.getElementById('toast-container');
+
+    // Values readouts
+    const valRoll = document.getElementById('val-roll');
+    const valPitch = document.getElementById('val-pitch');
+    const valMag = document.getElementById('val-mag');
+    const valTemp = document.getElementById('val-temp');
+
+    const lblAx = document.getElementById('lbl-ax');
+    const lblAy = document.getElementById('lbl-ay');
+    const lblAz = document.getElementById('lbl-az');
+    const lblGx = document.getElementById('lbl-gx');
+    const lblGy = document.getElementById('lbl-gy');
+    const lblGz = document.getElementById('lbl-gz');
+    const lblRoll = document.getElementById('lbl-roll');
+    const lblPitch = document.getElementById('lbl-pitch');
+    const lblTemp = document.getElementById('lbl-temp');
+
+    // Canvas contexts
+    const chartAccel = document.getElementById('chart-accel');
+    const chartGyro = document.getElementById('chart-gyro');
+    const chartOrientation = document.getElementById('chart-orientation');
+    const chartTemp = document.getElementById('chart-temp');
+
+    const sparkRoll = document.getElementById('spark-roll');
+    const sparkPitch = document.getElementById('spark-pitch');
+    const sparkMag = document.getElementById('spark-mag');
+    const sparkTemp = document.getElementById('spark-temp');
+
+    // Alert helper
+    function pushAlert(title, message, type) {
+      const now = new Date().toTimeString().split(' ')[0];
+      const dotColor = type === 'critical' ? 'var(--pink)' : type === 'warning' ? 'var(--amber)' : 'var(--cyan)';
+
+      // Append to feed
+      const item = document.createElement('div');
+      item.className = 'alert-item';
+      item.innerHTML = `
+        <div class="alert-left">
+          <div class="alert-dot" style="background: ${dotColor};"></div>
+          <div>
+            <div class="alert-title">${title}</div>
+            <div class="alert-msg">${message}</div>
+          </div>
+        </div>
+        <span class="alert-time">${now}</span>
+      `;
+      alertsFeed.insertBefore(item, alertsFeed.firstChild);
+      if (alertsFeed.children.length > 50) alertsFeed.removeChild(alertsFeed.lastChild);
+
+      // Toast notification
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `
+        <div class="alert-dot" style="background: ${dotColor};"></div>
+        <div><strong>${title}</strong>: ${message}</div>
+      `;
+      toastContainer.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Process new incoming raw reading
+    function processReading(raw) {
+      if (state.isPaused) return;
+
+      state.sampleCountSecond++;
+
+      // Calibration offset application
+      const ax = raw.ax - state.offsets.ax;
+      const ay = raw.ay - state.offsets.ay;
+      const az = raw.az - state.offsets.az;
+      const gx = raw.gx - state.offsets.gx;
+      const gy = raw.gy - state.offsets.gy;
+      const gz = raw.gz - state.offsets.gz;
+      const temp = raw.temp;
+
+      // Roll = atan2(ay, az) * (180 / PI)
+      const roll = Math.atan2(ay, az) * (180 / Math.PI);
+      // Pitch = atan2(-ax, sqrt(ay^2 + az^2)) * (180 / PI)
+      const pitch = Math.atan2(-ax, Math.sqrt(ay * ay + az * az)) * (180 / Math.PI);
+      // Magnitude
+      const mag = Math.sqrt(ax * ax + ay * ay + az * az);
+
+      const timestamp = Date.now();
+      const sample = {
+        timestamp,
+        relSec: (timestamp - state.startTime) / 1000,
+        ax, ay, az, gx, gy, gz, temp,
+        roll, pitch, mag
+      };
+
+      // Check alerts
+      if (mag > 18.0) {
+        pushAlert('Shake Detected', `High acceleration: ${mag.toFixed(1)} m/s²`, 'critical');
+      } else if (mag < 3.0) {
+        pushAlert('Free-Fall Detected', `Low-G drop: ${mag.toFixed(2)} m/s²`, 'warning');
+      }
+
+      state.samples.push(sample);
+      if (state.samples.length > state.maxSamples) {
+        state.samples.shift();
+      }
+    }
+
+    // Demo Mode Generator (smooth tilting + noise, |a| ~ 9.8)
+    function toggleDemo() {
+      if (state.status === 'demo') {
+        clearInterval(state.demoTimer);
+        state.demoTimer = null;
+        setConnectionStatus('disconnected');
+        pushAlert('Demo Stopped', 'Demo simulation halted', 'info');
+      } else {
+        if (state.port) disconnectSerial();
+        setConnectionStatus('demo');
+        state.startTime = Date.now();
+        pushAlert('Demo Mode Started', 'Synthesizing realistic 6-axis IMU motion', 'info');
+
+        let t = 0;
+        state.demoTimer = setInterval(() => {
+          t += 0.05;
+          const rollRad = Math.sin(t * 1.2) * 0.45 + Math.cos(t * 0.7) * 0.15;
+          const pitchRad = Math.cos(t * 0.9) * 0.35 + Math.sin(t * 1.5) * 0.1;
+
+          const g = 9.806;
+          const noise = () => (Math.random() - 0.5) * 0.08;
+
+          const ax = -g * Math.sin(pitchRad) + noise();
+          const ay = g * Math.sin(rollRad) * Math.cos(pitchRad) + noise();
+          const az = g * Math.cos(rollRad) * Math.cos(pitchRad) + noise();
+
+          const gx = Math.cos(t * 1.2) * 0.5 + (Math.random() - 0.5) * 0.02;
+          const gy = -Math.sin(t * 0.9) * 0.3 + (Math.random() - 0.5) * 0.02;
+          const gz = Math.sin(t * 0.5) * 0.1 + (Math.random() - 0.5) * 0.01;
+
+          const temp = 28.5 + Math.sin(t * 0.05) * 1.2 + (Math.random() - 0.5) * 0.05;
+
+          processReading({ ax, ay, az, gx, gy, gz, temp });
+        }, 50); // 20 Hz
+      }
+    }
+
+    function setConnectionStatus(s) {
+      state.status = s;
+      badgeStatus.className = 'badge';
+      if (s === 'connected') {
+        badgeStatus.classList.add('badge-connected');
+        badgeStatusText.textContent = 'Connected';
+        btnConnect.textContent = 'Disconnect';
+        btnConnect.classList.add('btn-danger');
+        btnDemo.classList.remove('btn-demo-active');
+        btnDemo.textContent = '▶ Demo Mode';
+      } else if (s === 'demo') {
+        badgeStatus.classList.add('badge-demo');
+        badgeStatusText.textContent = 'Demo Mode';
+        btnConnect.textContent = '🔌 Connect Device';
+        btnConnect.classList.remove('btn-danger');
+        btnDemo.classList.add('btn-demo-active');
+        btnDemo.textContent = '⏹ Stop Demo';
+      } else {
+        badgeStatus.classList.add('badge-disconnected');
+        badgeStatusText.textContent = 'Disconnected';
+        btnConnect.textContent = '🔌 Connect Device';
+        btnConnect.classList.remove('btn-danger');
+        btnDemo.classList.remove('btn-demo-active');
+        btnDemo.textContent = '▶ Demo Mode';
+        state.sampleRateHz = 0;
+        sampleRateText.textContent = '0';
+      }
+    }
+
+    // Web Serial API Implementation
+    async function connectSerial() {
+      if (!('serial' in navigator)) {
+        alert('Web Serial API is not supported in this browser.\nPlease use Google Chrome, Edge, or Opera on desktop, or run Demo Mode!');
+        return;
+      }
+      if (state.status === 'connected') {
+        await disconnectSerial();
+        return;
+      }
+
+      try {
+        if (state.demoTimer) {
+          clearInterval(state.demoTimer);
+          state.demoTimer = null;
+        }
+
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        state.port = port;
+        state.keepReading = true;
+        setConnectionStatus('connected');
+        state.startTime = Date.now();
+        pushAlert('Connected', 'ESP32 serial connection open at 115200 baud', 'info');
+
+        const textDecoder = new TextDecoderStream();
+        const readableClosed = port.readable.pipeTo(textDecoder.writable);
+        const reader = textDecoder.readable.getReader();
+        state.reader = reader;
+
+        let buffer = '';
+        while (state.keepReading) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            buffer += value;
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop(); // keep last incomplete chunk
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+              const parts = trimmed.split(',');
+              if (parts.length === 7) {
+                const nums = parts.map(Number);
+                if (nums.every(n => !isNaN(n) && isFinite(n))) {
+                  processReading({
+                    ax: nums[0],
+                    ay: nums[1],
+                    az: nums[2],
+                    gx: nums[3],
+                    gy: nums[4],
+                    gz: nums[5],
+                    temp: nums[6]
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'NotFoundError') {
+          console.error(err);
+          alert('Serial connection error: ' + err.message);
+        }
+        await disconnectSerial();
+      }
+    }
+
+    async function disconnectSerial() {
+      state.keepReading = false;
+      try {
+        if (state.reader) {
+          await state.reader.cancel();
+          state.reader = null;
+        }
+        if (state.port) {
+          await state.port.close();
+          state.port = null;
+        }
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setConnectionStatus('disconnected');
+        pushAlert('Disconnected', 'Serial port closed', 'info');
+      }
+    }
+
+    // UI Render Loop (~20 FPS)
+    function renderLoop() {
+      const now = performance.now();
+      if (now - state.lastSecondTime >= 1000) {
+        state.sampleRateHz = state.sampleCountSecond;
+        sampleRateText.textContent = state.sampleRateHz;
+        state.sampleCountSecond = 0;
+        state.lastSecondTime = now;
+      }
+
+      sampleCountBadge.textContent = `${state.samples.length} samples`;
+
+      const latest = state.samples[state.samples.length - 1];
+      if (latest) {
+        // Update KPIs
+        valRoll.textContent = latest.roll.toFixed(1);
+        valPitch.textContent = latest.pitch.toFixed(1);
+        valMag.textContent = latest.mag.toFixed(2);
+        valTemp.textContent = latest.temp.toFixed(1);
+
+        lblAx.textContent = latest.ax.toFixed(2);
+        lblAy.textContent = latest.ay.toFixed(2);
+        lblAz.textContent = latest.az.toFixed(2);
+        lblGx.textContent = latest.gx.toFixed(3);
+        lblGy.textContent = latest.gy.toFixed(3);
+        lblGz.textContent = latest.gz.toFixed(3);
+        lblRoll.textContent = latest.roll.toFixed(1) + '°';
+        lblPitch.textContent = latest.pitch.toFixed(1) + '°';
+        lblTemp.textContent = latest.temp.toFixed(1) + ' °C';
+
+        // Update 3D Cube
+        cube.style.transform = `rotateX(${15 - latest.pitch}deg) rotateY(-25deg) rotateZ(${-latest.roll}deg)`;
+        cubeRollTxt.textContent = latest.roll.toFixed(1) + '°';
+        cubePitchTxt.textContent = latest.pitch.toFixed(1) + '°';
+        cubeXVal.textContent = latest.pitch.toFixed(1) + '°';
+        cubeYVal.textContent = latest.roll.toFixed(1) + '°';
+
+        if (Math.abs(latest.roll) < 5 && Math.abs(latest.pitch) < 5) {
+          levelBadge.innerHTML = '● Level';
+          levelBadge.style.color = 'var(--lime)';
+        } else {
+          levelBadge.innerHTML = '● Tilted';
+          levelBadge.style.color = 'var(--cyan)';
+        }
+
+        // Draw Sparklines
+        drawSparkline(sparkRoll, state.samples, 'roll', '#4cc9f0');
+        drawSparkline(sparkPitch, state.samples, 'pitch', '#f72585');
+        drawSparkline(sparkMag, state.samples, 'mag', '#b8f34c');
+        drawSparkline(sparkTemp, state.samples, 'temp', '#ffbe0b');
+
+        // Draw 4 Main Charts
+        drawMultiLineChart(chartAccel, state.samples, state.timeWindowSec, [
+          { key: 'ax', color: '#4cc9f0', label: 'Accel X' },
+          { key: 'ay', color: '#f72585', label: 'Accel Y' },
+          { key: 'az', color: '#b8f34c', label: 'Accel Z' }
+        ]);
+
+        drawMultiLineChart(chartGyro, state.samples, state.timeWindowSec, [
+          { key: 'gx', color: '#4cc9f0', label: 'Gyro X' },
+          { key: 'gy', color: '#f72585', label: 'Gyro Y' },
+          { key: 'gz', color: '#b8f34c', label: 'Gyro Z' }
+        ]);
+
+        drawMultiLineChart(chartOrientation, state.samples, state.timeWindowSec, [
+          { key: 'roll', color: '#4cc9f0', label: 'Roll' },
+          { key: 'pitch', color: '#f72585', label: 'Pitch' }
+        ]);
+
+        drawMultiLineChart(chartTemp, state.samples, state.timeWindowSec, [
+          { key: 'temp', color: '#ffbe0b', label: 'Die Temp' }
+        ]);
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // Sparkline Canvas Drawer
+    function drawSparkline(canvas, samples, key, color) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const recent = samples.slice(-30);
+      if (recent.length < 2) return;
+
+      const vals = recent.map(s => s[key]);
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      const range = max - min || 1;
+
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = 'round';
+
+      recent.forEach((s, i) => {
+        const x = (i / (recent.length - 1)) * w;
+        const y = h - ((s[key] - min) / range) * (h - 6) - 3;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    // High Performance Chart Canvas Drawer
+    function drawMultiLineChart(canvas, samples, windowSec, seriesList) {
+      const parent = canvas.parentElement;
+      if (canvas.width !== parent.clientWidth || canvas.height !== parent.clientHeight) {
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+      }
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (samples.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Waiting for data stream...', w / 2, h / 2);
+        return;
+      }
+
+      const latestTime = samples[samples.length - 1].timestamp;
+      const windowStart = latestTime - windowSec * 1000;
+      const filtered = samples.filter(s => s.timestamp >= windowStart);
+      if (filtered.length < 2) return;
+
+      // Find global min and max across all series in this chart
+      let minVal = Infinity;
+      let maxVal = -Infinity;
+      seriesList.forEach(s => {
+        filtered.forEach(sample => {
+          const v = sample[s.key];
+          if (v < minVal) minVal = v;
+          if (v > maxVal) maxVal = v;
+        });
+      });
+
+      // Add 10% vertical padding
+      const pad = (maxVal - minVal) * 0.1 || 1;
+      minVal -= pad;
+      maxVal += pad;
+      const range = maxVal - minVal;
+
+      const padLeft = 32;
+      const padBottom = 20;
+      const plotW = w - padLeft - 10;
+      const plotH = h - padBottom - 10;
+
+      // Draw subtle grid lines
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 3; i++) {
+        const y = 10 + (plotH / 3) * i;
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(w - 10, y);
+
+        // Y-axis labels
+        const val = maxVal - (range / 3) * i;
+        ctx.fillStyle = '#475569';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(val.toFixed(1), padLeft - 4, y + 3);
+      }
+      ctx.stroke();
+
+      // Plot each series line
+      seriesList.forEach(s => {
+        ctx.beginPath();
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 1.8;
+        ctx.lineJoin = 'round';
+
+        filtered.forEach((sample, idx) => {
+          const normX = (sample.timestamp - windowStart) / (latestTime - windowStart || 1);
+          const x = padLeft + normX * plotW;
+          const y = 10 + plotH - ((sample[s.key] - minVal) / range) * plotH;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+
+      // X-axis label
+      ctx.fillStyle = '#475569';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`-${windowSec}s`, padLeft, h - 6);
+      ctx.fillText('Now', w - 15, h - 6);
+    }
+
+    // CSV Export
+    function exportCsv() {
+      if (!state.samples.length) {
+        alert('No data available to export.');
+        return;
+      }
+      const headers = ['Timestamp_ms', 'Rel_Sec', 'ax', 'ay', 'az', 'gx', 'gy', 'gz', 'roll', 'pitch', 'mag', 'temp'];
+      const rows = state.samples.map(s => [
+        s.timestamp, s.relSec.toFixed(3),
+        s.ax.toFixed(4), s.ay.toFixed(4), s.az.toFixed(4),
+        s.gx.toFixed(5), s.gy.toFixed(5), s.gz.toFixed(5),
+        s.roll.toFixed(2), s.pitch.toFixed(2), s.mag.toFixed(3), s.temp.toFixed(2)
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mpu6050_telemetry_${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Calibration
+    function calibrateZero() {
+      const latest = state.samples[state.samples.length - 1];
+      if (!latest) {
+        alert('No sensor data received yet.');
+        return;
+      }
+      state.offsets.ax += latest.ax;
+      state.offsets.ay += latest.ay;
+      state.offsets.az += (latest.az - 9.806);
+      state.offsets.gx += latest.gx;
+      state.offsets.gy += latest.gy;
+      state.offsets.gz += latest.gz;
+
+      pushAlert('Calibrated', 'Sensor level zeroed against desk baseline', 'info');
+      updateCalibrationText();
+    }
+
+    function resetCalibration() {
+      state.offsets = { ax: 0, ay: 0, az: 0, gx: 0, gy: 0, gz: 0, temp: 0 };
+      pushAlert('Reset Offsets', 'Calibration restored to factory raw', 'info');
+      updateCalibrationText();
+    }
+
+    function updateCalibrationText() {
+      const o = state.offsets;
+      document.getElementById('calibration-offsets-txt').textContent =
+        `ax: ${o.ax.toFixed(3)} | ay: ${o.ay.toFixed(3)} | az: ${o.az.toFixed(3)} | gx: ${o.gx.toFixed(4)} | gy: ${o.gy.toFixed(4)} | gz: ${o.gz.toFixed(4)}`;
+    }
+
+    // Modal helpers
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    function copyCode() {
+      navigator.clipboard.writeText(document.getElementById('code-snippet').textContent);
+      alert('Firmware sketch copied to clipboard!');
+    }
+
+    // Event Listeners
+    btnDemo.addEventListener('click', toggleDemo);
+    btnConnect.addEventListener('click', connectSerial);
+    btnPause.addEventListener('click', () => {
+      state.isPaused = !state.isPaused;
+      btnPause.textContent = state.isPaused ? '▶ Resume Stream' : '⏸ Pause Stream';
+    });
+    btnClear.addEventListener('click', () => {
+      state.samples = [];
+      sampleCountBadge.textContent = '0 samples';
+    });
+    document.getElementById('btn-zero-calibrate').addEventListener('click', calibrateZero);
+    document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
+    document.getElementById('btn-reset-view').addEventListener('click', () => {
+      cube.style.transform = 'rotateX(15deg) rotateY(-25deg)';
+    });
+    document.getElementById('btn-clear-alerts').addEventListener('click', () => {
+      alertsFeed.innerHTML = '<div style="text-align:center; padding:16px; font-size:11px; color:#64748b;">Event log cleared</div>';
+    });
+
+    // Time window buttons
+    document.querySelectorAll('.time-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.timeWindowSec = Number(btn.getAttribute('data-sec'));
+      });
+    });
+
+    // Modal buttons
+    document.getElementById('btn-calibrate-modal').addEventListener('click', () => {
+      updateCalibrationText();
+      openModal('modal-calibration');
+    });
+    document.getElementById('btn-guide-modal').addEventListener('click', () => openModal('modal-guide'));
+    document.getElementById('btn-apply-cal').addEventListener('click', () => {
+      calibrateZero();
+      closeModal('modal-calibration');
+    });
+    document.getElementById('btn-reset-cal').addEventListener('click', resetCalibration);
+
+    // Auto-launch demo mode on startup so the preview immediately comes alive!
+    setTimeout(() => {
+      toggleDemo();
+    }, 300);
+
+    // Start render loop
+    requestAnimationFrame(renderLoop);
+  </script>
+</body>
+</html>

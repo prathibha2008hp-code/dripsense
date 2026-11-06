@@ -1,0 +1,6 @@
+{
+  "name": "MPU6050 Live Motion",
+  "description": "Professional real-time motion telemetry dashboard for ESP32 and MPU6050 IMU sensor featuring Web Serial API, 3D orientation cube, live multi-channel charts, alerts, and demo mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
